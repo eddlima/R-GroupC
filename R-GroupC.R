@@ -2,6 +2,8 @@ library(tidyverse)
 library(ggrepel)
 library(RColorBrewer)
 library(lubridate)
+library(stringr)
+library(forcats)
 
 #BASE
 # Define the URL of the csv.gz file and the destination file path
@@ -79,4 +81,34 @@ ggplot(mode_share_bb_combined, aes(x = main_mode, y = share, fill = scenario)) +
   scale_fill_manual(values = c("base" = "blue", "policy" = "red")) +
   theme_minimal() +
   theme(axis.text.x = element_text(hjust = 1))
+
+
+
+# Comapring travel time
+base_data_bb <- base_data %>% filter(grepl("^bb", trip_id, ignore.case = TRUE)) %>% 
+policy_data_bb <- policy_data %>% filter(grepl("^bb", trip_id, ignore.case = TRUE))
+
+mode_base_summary <- base_data_bb %>% 
+  group_by(main_mode) %>% 
+  summarise (avg_travel_time = mean(trav_time, na.rm = TRUE), .ps = 'drop')
+
+mode_policy_summary <- policy_data_bb %>% 
+  group_by(main_mode) %>% 
+  summarise (avg_travel_time = mean(trav_time, na.rm = TRUE), .ps = 'drop')
+
+mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
+                                   by = "main_mode",
+                                   suffix = c("_base", "_policy")) %>% 
+  arrange((avg_travel_time_base))
+
+ggplot(mode_summary_combined, aes(x = main_mode)) +
+  geom_col(aes(y = avg_travel_time_base, fill = "Base"), position = "dodge", alpha = 0.7) +
+  geom_col(aes(y = avg_travel_time_policy, fill = "Policy"), position = "dodge", alpha = 0.5) +
+  labs(title = "Average Travel Time for Brandenburg Residents: Base vs Policy Scenario",
+       x = "Mode of Transportation", y = "Average Travel Time (minutes)") +
+  scale_fill_manual(values = c("Base" = "blue", "Policy" = "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(hjust = 1, angle = 45))
+
+
 
