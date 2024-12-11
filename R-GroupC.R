@@ -85,7 +85,7 @@ ggplot(mode_share_bb_combined, aes(x = main_mode, y = share, fill = scenario)) +
 
 
 # Comapring travel time
-base_data_bb <- base_data %>% filter(grepl("^bb", trip_id, ignore.case = TRUE)) %>% 
+base_data_bb <- base_data %>% filter(grepl("^bb", trip_id, ignore.case = TRUE))
 policy_data_bb <- policy_data %>% filter(grepl("^bb", trip_id, ignore.case = TRUE))
 
 mode_base_summary <- base_data_bb %>% 
