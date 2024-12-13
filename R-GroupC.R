@@ -74,15 +74,15 @@ policy_data_bb <- policy_data %>%
   filter(grepl("^bb", trip_id, ignore.case = TRUE)) %>%
   mutate(total_trav_time = trav_time + wait_time)
 
-mode_base_summary <- base_data_bb %>% 
+mode_base_summary1 <- base_data_bb %>% 
   group_by(main_mode) %>% 
-  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE), .groups = 'drop')
+  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE))
 
-mode_policy_summary <- policy_data_bb %>% 
+mode_policy_summary1 <- policy_data_bb %>% 
   group_by(main_mode) %>% 
-  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE), .groups = 'drop')
+  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE))
 
-mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
+mode_summary_combined1 <- left_join(mode_base_summary1, mode_policy_summary1,
                                    by = "main_mode",
                                    suffix = c("_base", "_policy")) %>%
   mutate(avg_travel_time_diff = avg_travel_time_policy - avg_travel_time_base) %>% 
@@ -94,32 +94,26 @@ mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
                                 "Ride" = "ride",
                                 "Walk" = "walk"))
 
-ggplot(mode_summary_combined, aes(x = main_mode, y = avg_travel_time_diff, fill = color_diff)) +
+ggplot(mode_summary_combined1, aes(x = main_mode, y = avg_travel_time_diff, fill = color_diff)) +
   geom_col(alpha = 0.7) +
-  labs(title = "Difference of Average Travel Time for Brandenburg Residents",
-       x = "Mode of Transportation", y = "Difference of Average Travel Time (seconds) - Policy vs. Base Scenario") +
+  labs(title = "Difference of Mean Travel Time for Brandenburg Residents",
+       x = "Mode of Transportation", y = "Difference of Mean Travel Time (seconds)") +
   scale_fill_manual(values = c("Positive" = "green", "Negative" = "red")) +
   theme_minimal() +
   theme(legend.position = "none", legend.title = element_blank()) +
-  theme(axis.text.x = element_text(hjust = 1, angle = 45))
+  theme(axis.text.x = element_text(hjust = 1, angle = 45)) +
+  scale_y_continuous(limits = c(-75, 175), breaks = seq(-75, 175, by = 25))
 
 # Comparing median travel time by main mode
-base_data_bb <- base_data %>% 
-  filter(grepl("^bb", trip_id, ignore.case = TRUE)) %>%
-  mutate(total_trav_time = trav_time + wait_time)  
-policy_data_bb <- policy_data %>% 
-  filter(grepl("^bb", trip_id, ignore.case = TRUE)) %>%
-  mutate(total_trav_time = trav_time + wait_time)
-
-mode_base_summary <- base_data_bb %>% 
+mode_base_summary2 <- base_data_bb %>% 
   group_by(main_mode) %>% 
-  summarise (avg_travel_time = median(total_trav_time, na.rm = TRUE), .groups = 'drop')
+  summarise (avg_travel_time = median(total_trav_time, na.rm = TRUE))
 
-mode_policy_summary <- policy_data_bb %>% 
+mode_policy_summary2 <- policy_data_bb %>% 
   group_by(main_mode) %>% 
-  summarise (avg_travel_time = median(total_trav_time, na.rm = TRUE), .groups = 'drop')
+  summarise (avg_travel_time = median(total_trav_time, na.rm = TRUE))
 
-mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
+mode_summary_combined2 <- left_join(mode_base_summary2, mode_policy_summary2,
                                    by = "main_mode",
                                    suffix = c("_base", "_policy")) %>%
   mutate(avg_travel_time_diff = avg_travel_time_policy - avg_travel_time_base) %>% 
@@ -131,14 +125,15 @@ mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
                                 "Ride" = "ride",
                                 "Walk" = "walk"))
 
-ggplot(mode_summary_combined, aes(x = main_mode, y = avg_travel_time_diff, fill = color_diff)) +
+ggplot(mode_summary_combined2, aes(x = main_mode, y = avg_travel_time_diff, fill = color_diff)) +
   geom_col(alpha = 0.7) +
-  labs(title = "Difference of Average Travel Time for Brandenburg Residents",
-       x = "Mode of Transportation", y = "Difference of Average Travel Time (seconds) - Policy vs. Base Scenario") +
+  labs(title = "Difference of Median Travel Time for Brandenburg Residents",
+       x = "Mode of Transportation", y = "Difference of Median Travel Time (seconds)") +
   scale_fill_manual(values = c("Positive" = "green", "Negative" = "red")) +
   theme_minimal() +
   theme(legend.position = "none", legend.title = element_blank()) +
-  theme(axis.text.x = element_text(hjust = 1, angle = 45))
+  theme(axis.text.x = element_text(hjust = 1, angle = 45)) +
+  scale_y_continuous(limits = c(-75, 175), breaks = seq(-75, 175, by = 25))
 
 
 
