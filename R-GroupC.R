@@ -70,26 +70,27 @@ policy_data_bb <- policy_data %>%
 
 mode_base_summary <- base_data_bb %>% 
   group_by(main_mode) %>% 
-  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE), .ps = 'drop')
+  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE), .groups = 'drop')
 
 mode_policy_summary <- policy_data_bb %>% 
   group_by(main_mode) %>% 
-  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE), .ps = 'drop')
+  summarise (avg_travel_time = mean(total_trav_time, na.rm = TRUE), .groups = 'drop')
 
 mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
                                    by = "main_mode",
                                    suffix = c("_base", "_policy")) %>%
   mutate(avg_travel_time_diff = avg_travel_time_policy - avg_travel_time_base)
-  
 
+  
 ggplot(mode_summary_combined, aes(x = main_mode, y = avg_travel_time_diff)) +
-  geom_col(aes( fill = "Diff"), position = "dodge", alpha = 0.7) +
+  geom_col(aes(fill = "Diff"), alpha = 0.7) +
   labs(title = "Difference of Average Travel Time for Brandenburg Residents",
        x = "Mode of Transportation", y = "Difference of Average Travel Time (seconds) - Policy vs. Base Scenario") +
-  scale_fill_manual(Values = c("Diff" = "green")) +
+  scale_fill_manual(values = c("Diff" = "green")) +
   theme_minimal() +
   theme(legend.position = "none", legend.title = element_blank()) +
   theme(axis.text.x = element_text(hjust = 1))
+
 
 
 
