@@ -79,18 +79,18 @@ mode_policy_summary <- policy_data_bb %>%
 mode_summary_combined <- left_join(mode_base_summary, mode_policy_summary,
                                    by = "main_mode",
                                    suffix = c("_base", "_policy")) %>%
-  mutate(avg_travel_time_diff = avg_travel_time_policy - avg_travel_time_base)
+  mutate(avg_travel_time_diff = avg_travel_time_policy - avg_travel_time_base) %>% 
+  mutate(color_diff = ifelse(avg_travel_time_diff > 0, "Positive", "Negative"))
 
   
-ggplot(mode_summary_combined, aes(x = main_mode, y = avg_travel_time_diff)) +
-  geom_col(aes(fill = "Diff"), alpha = 0.7) +
+ggplot(mode_summary_combined, aes(x = main_mode, y = avg_travel_time_diff, fill = color_diff)) +
+  geom_col(alpha = 0.7) +
   labs(title = "Difference of Average Travel Time for Brandenburg Residents",
        x = "Mode of Transportation", y = "Difference of Average Travel Time (seconds) - Policy vs. Base Scenario") +
-  scale_fill_manual(values = c("Diff" = "green")) +
+  scale_fill_manual(values = c("Positive" = "green", "Negative" = "red")) +
   theme_minimal() +
   theme(legend.position = "none", legend.title = element_blank()) +
   theme(axis.text.x = element_text(hjust = 1))
-
 
 
 
