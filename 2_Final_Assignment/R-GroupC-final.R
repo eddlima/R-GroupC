@@ -53,24 +53,25 @@ policy_person_bb_travel_time <- policy_trips %>%
   summarise(total_trav_time = sum(trav_time, na.rm = TRUE))
 
 persons_bb <- base_persons %>% 
-  filter(grepl("^bb", person, ignore.case = TRUE))
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  filter(!is.na(home_x) & !is.na(home_y))
 
 bb_persons_shp <- full_join(persons_bb, base_person_bb_travel_time) %>% 
-  filter(!is.na(home_x) & !is.na(home_y)) %>% 
+  filter(!is.na(total_trav_time)) %>% 
   st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% st_transform(25833)
 plot(bb_persons_shp)
 
 kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(bb_persons_shp, left = FALSE)
 #aggregation
-kresie_persons_joined_agg <- kreise_persons_joined_inner %>% 
+kreise_persons_joined_agg <- kreise_persons_joined_inner %>% 
   group_by(krs_name) %>% 
-  summarise(population = n(), travel_time = mean(trav_time))
+  summarise(population = n(), trav_time = mean(total_trav_time))
 
 tm_shape(kreise_persons_joined_agg) +
   tm_polygons(col = "population")
 
 tm_shape(kreise_persons_joined_agg) +
-  tm_polygons(col = "travel time")
+  tm_polygons(col = "trav_time")
 
 
 
