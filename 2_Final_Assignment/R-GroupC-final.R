@@ -117,10 +117,13 @@ diff_kreise_persons_joined_agg <- diff_kreise_persons_joined_inner %>%
 
 tm_shape(diff_kreise_persons_joined_agg) +
   tm_polygons(col = "diff_travel_time",
-              title = "Difference in Travel Time (Policy - Base)")
+              title = "Difference in Travel Time (Policy - Base)",
+              palette = "-RdYlGn",
+              style = "cont") +
+  tm_borders() +
+  tm_scale_bar() +
+  tm_layout(legend.outside = TRUE)
 
-
-RColorBrewer::display.brewer.all()
 
 
 
