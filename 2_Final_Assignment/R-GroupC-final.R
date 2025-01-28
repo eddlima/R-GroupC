@@ -41,38 +41,86 @@ base_trips_sf %>%
   tm_shape(bb_kreise_shp) + 
   tm_borders() 
 
-# Summing travel time for each person
+# Base case
 base_person_bb_travel_time <- base_trips %>%
   filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
   group_by(person) %>%
   summarise(total_trav_time = sum(trav_time, na.rm = TRUE))
 
+base_persons_bb <- base_persons %>% 
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  filter(!is.na(home_x) & !is.na(home_y))
+
+base_persons_bb_shp <- full_join(base_persons_bb, base_person_bb_travel_time) %>% 
+  filter(!is.na(total_trav_time)) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% st_transform(25833)
+
+base_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(base_persons_bb_shp, left = FALSE)
+
+base_kreise_persons_joined_agg <- base_kreise_persons_joined_inner %>%
+  group_by(krs_name) %>% 
+  summarise(population = n(), trav_time = mean(total_trav_time)) %>% 
+  mutate(trav_time = as.numeric(trav_time))
+
+tm_shape(base_kreise_persons_joined_agg) +
+  tm_polygons(col = "population")
+
+tm_shape(base_kreise_persons_joined_agg) +
+  tm_polygons(col = "trav_time",
+              title = "Base Travel Time")
+
+#Policy Case
 policy_person_bb_travel_time <- policy_trips %>%
   filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
   group_by(person) %>%
   summarise(total_trav_time = sum(trav_time, na.rm = TRUE))
 
-persons_bb <- base_persons %>% 
+policy_persons_bb <- policy_persons %>% 
   filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
   filter(!is.na(home_x) & !is.na(home_y))
 
-bb_persons_shp <- full_join(persons_bb, base_person_bb_travel_time) %>% 
+policy_persons_bb_shp <- full_join(policy_persons_bb, policy_person_bb_travel_time) %>% 
   filter(!is.na(total_trav_time)) %>% 
   st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% st_transform(25833)
-plot(bb_persons_shp)
 
-kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(bb_persons_shp, left = FALSE)
-#aggregation
-kreise_persons_joined_agg <- kreise_persons_joined_inner %>% 
+policy_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(policy_persons_bb_shp, left = FALSE)
+
+policy_kreise_persons_joined_agg <- policy_kreise_persons_joined_inner %>%
   group_by(krs_name) %>% 
-  summarise(population = n(), trav_time = mean(total_trav_time))
+  summarise(population = n(), trav_time = mean(total_trav_time)) %>% 
+  mutate(trav_time = as.numeric(trav_time))
 
-tm_shape(kreise_persons_joined_agg) +
-  tm_polygons(col = "population")
+tm_shape(policy_kreise_persons_joined_agg) +
+  tm_polygons(col = "trav_time",
+              title = "Policy Travel Time")
 
-tm_shape(kreise_persons_joined_agg) +
-  tm_polygons(col = "trav_time")
 
+#Comparing Base and Policy Travel Times
+diff_person_bb_travel_time <- inner_join(base_person_bb_travel_time, policy_person_bb_travel_time,
+                                         by = "person", suffix = c("_base","_policy")) %>% 
+  mutate(diff_travel_time = total_trav_time_policy - total_trav_time_base) %>% 
+  select(person, diff_travel_time)
+
+diff_person_bb_travel_time_shp <- full_join(base_persons_bb, diff_person_bb_travel_time) %>%  
+  filter(!is.na(diff_travel_time)) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% st_transform(25833)
+
+diff_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(diff_person_bb_travel_time_shp, left = FALSE)
+
+diff_kreise_persons_joined_agg <- diff_kreise_persons_joined_inner %>%
+  group_by(krs_name) %>% 
+  summarise(population = n(), diff_travel_time = mean(diff_travel_time)) %>% 
+  mutate(diff_travel_time = as.numeric(diff_travel_time))
+
+
+# Plot travel time difference (continuous values)
+
+tm_shape(diff_kreise_persons_joined_agg) +
+  tm_polygons(col = "diff_travel_time",
+              title = "Difference in Travel Time (Policy - Base)")
+
+
+RColorBrewer::display.brewer.all()
 
 
 
