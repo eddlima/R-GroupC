@@ -22,7 +22,7 @@ for(policy_name in c("base","policy")) {
   }
 }
 
-bb_kreise_shp <- st_read("C://Users//Eduardo Lima//Documents//TUB//Studium//24-25 WiSe//Data Science for agent-based transport simulations//R-GroupC//R-GroupC//2_Final_Assignment//103837211850837114_data//pos_1//GRENZE_152811-5683624_kreise.shp")
+bb_kreise_shp <- st_read("103837211850837114_data//pos_1//GRENZE_152811-5683624_kreise.shp")
 
 st_crs(bb_kreise_shp)
 
@@ -62,7 +62,8 @@ policy_trips_sf <- left_join(base_persons_sf, policy_main_mode) %>%
 
 policy_trips_sf %>% 
   tm_shape() +
-  tm_dots(col = "main_mode") +
+  tm_dots(col = "main_mode",
+          title = "Agents' Main Mode in Brandenburg - Policy Case") +
   tm_shape(bb_kreise_shp) + 
   tm_borders()
 
@@ -142,15 +143,15 @@ diff_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(diff_person_bb_tra
 
 diff_kreise_persons_joined_agg <- diff_kreise_persons_joined_inner %>%
   group_by(krs_name) %>% 
-  summarise(population = n(), diff_travel_time = median(diff_travel_time)) %>% 
+  summarise(population = n(), diff_travel_time = mean(diff_travel_time)/60) %>% 
   mutate(
     diff_travel_time = as.numeric(diff_travel_time),
     population_percentage = (population / sum(population, na.rm = TRUE)) * 100
-  )
+)
 
 tm_shape(diff_kreise_persons_joined_agg) +
   tm_polygons(col = "diff_travel_time",
-              title = "Difference in Travel Time (Policy - Base)",
+              title = "Difference in Mean Travel Time (min) (Policy - Base)",
               palette = "-RdYlGn",
               style = "cont") +
   tm_borders() +
@@ -159,14 +160,14 @@ tm_shape(diff_kreise_persons_joined_agg) +
 
 tm_shape(diff_kreise_persons_joined_agg) +
   tm_polygons(col = "population_percentage",
-              title = "Agents Population % to the total agents of Brandenburg",
+              title = "Agents Population % to the Total Agents of Brandenburg",
               palette = "Greens",
               style = "cont",
               breaks = seq(0, 20, by = 5))
 
 st_write(diff_kreise_persons_joined_agg, "diff_trav_time_bb.shp")
 
-#Downloading information from Statistics from Brandenburg
+#Population Brandenburg
 population <- read_excel("Bevoelkerungsstand_Regionaldaten_2023_Berlin-Brandenburg.xlsx", skip=4)
 
 population_tidy <- population[2:19,] %>% 
@@ -187,6 +188,8 @@ tm_shape(population_bb_shp) +
               palette = "Greens",
               style = "cont",
               breaks = seq(0, 20, by = 5))
+
+st_write(population_bb_shp, "population_bb.shp")
 
 #Base and Policy Case - Car Use in Brandenburg
 base_krs_car <- base_trips_sf %>% 

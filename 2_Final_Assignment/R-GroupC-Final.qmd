@@ -1,19 +1,19 @@
 ---
----
 title: "Group C"
+author: "Eduardo, Ibrahim, Marius"
 format: 
   dashboard:
-    nav-buttons: 
+    scrolling: true
     orientation: columns
-    theme: yeti
+    nav-buttons: 
+      icon: github
+      href: https://github.com/matsim-vsp
+    theme: flatly
 editor: visual
 ---
 
-## 
-
-# Aesthetics
-
 ```{r}
+#| include: false
 library(tidyverse)
 library(ggrepel)
 library(RColorBrewer)
@@ -23,26 +23,234 @@ library(forcats)
 library(sf)
 library(tmap)
 library(readxl)
+library(DT)
+```
 
-diff_trav_time_bb <-  st_read("diff_trav_time_bb.shp")
+#  {.sidebar}
+**How would the travel time of Brandenburg residents be affected by Berlin's car-free policy?**<br>
+<br>
+The Group C investigated the effects of Berlin's car-free policy within the so called Hundekopf area in the middle of the city for the residents of the surrounding state of Brandenburg.
+
+```{r}
+#| include: false
+for(policy_name in c("base","policy")) {
+  
+  base_url <- str_c("https://svn.vsp.tu-berlin.de/repos/public-svn/matsim/tutorial/datascience2024/matsim_outputs/output-1pct/", policy_name, "/berlin-v6.3.output_")
+  
+  for(dataset_name in c("persons", "activities", "trips", "legs")){
+    destfile <- str_c(dataset_name, ".csv.gz")
+    url <- stringr::str_c(base_url, destfile)
+    
+    download.file(url, destfile)
+    
+    assign(str_c(policy_name, "_", dataset_name), value = read_delim(gzfile(destfile)))
+  }
+}
+
+bb_kreise_shp <- st_read("103837211850837114_data//pos_1//GRENZE_152811-5683624_kreise.shp", quiet = TRUE)
+
+base_person_bb_travel_time <- base_trips %>%
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  group_by(person) %>%
+  summarise(total_trav_time = sum(trav_time, na.rm = TRUE))
+
+base_persons_bb <- base_persons %>% 
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  filter(!is.na(home_x) & !is.na(home_y))
+
+base_persons_bb_shp <- full_join(base_persons_bb, base_person_bb_travel_time) %>% 
+  filter(!is.na(total_trav_time)) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% st_transform(25833)
+
+base_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(base_persons_bb_shp, left = FALSE)
+
+base_kreise_persons_joined_agg <- base_kreise_persons_joined_inner %>%
+  group_by(krs_name) %>% 
+  summarise(population = n(), trav_time = median(total_trav_time)) %>% 
+  mutate(trav_time = as.numeric(trav_time)/60) %>% 
+  mutate(scenario = "Base")
+
+policy_person_bb_travel_time <- policy_trips %>%
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  group_by(person) %>%
+  summarise(total_trav_time = sum(trav_time, na.rm = TRUE))
+
+policy_persons_bb <- policy_persons %>% 
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  filter(!is.na(home_x) & !is.na(home_y))
+
+policy_persons_bb_shp <- full_join(policy_persons_bb, policy_person_bb_travel_time) %>% 
+  filter(!is.na(total_trav_time)) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% st_transform(25833)
+
+policy_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(policy_persons_bb_shp, left = FALSE)
+
+policy_kreise_persons_joined_agg <- policy_kreise_persons_joined_inner %>%
+  group_by(krs_name) %>% 
+  summarise(population = n(), trav_time = median(total_trav_time)) %>% 
+  mutate(trav_time = as.numeric(trav_time)/60) %>% 
+  mutate(scenario = "Policy")
+
+diff_person_bb_travel_time <- inner_join(base_person_bb_travel_time, policy_person_bb_travel_time, by = "person", suffix = c("_base","_policy")) %>% 
+  mutate(diff_travel_time = total_trav_time_policy - total_trav_time_base) %>% 
+  select(person, diff_travel_time)
+
+diff_person_bb_travel_time_shp <- full_join(base_persons_bb, diff_person_bb_travel_time) %>%  
+  filter(!is.na(diff_travel_time)) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% 
+  st_transform(25833)
+
+diff_kreise_persons_joined_inner <- bb_kreise_shp %>% st_join(diff_person_bb_travel_time_shp, left = FALSE)
+
+diff_kreise_persons_joined_agg <- diff_kreise_persons_joined_inner %>%
+  group_by(krs_name) %>% 
+  summarise(population = n(), diff_travel_time = mean(diff_travel_time)/60) %>% 
+  mutate(
+    diff_travel_time = as.numeric(diff_travel_time),
+    population_percentage = round((population / sum(population, na.rm = TRUE)) * 100, 2)) %>% 
+  select(krs_name, population, population_percentage) %>% 
+  rename(County = krs_name, Agents = population, "Proportion (%)" = population_percentage) %>% 
+  st_drop_geometry()
+```
+
+# Population of Brandenburg
+
+## Presentation {width=50%}
+
+```{r}
+tmap_mode("view")
+population_bb_shp <- st_read("population_bb.shp", quiet = TRUE)
+
+tm_shape(population_bb_shp) +
+  tm_polygons(col = "ppltn_p",
+              title = "Population (% of Brandenburg)",
+              palette = "Greens",
+              style = "cont",
+              breaks = seq(0, 20, by = 5))
+```
+
+[1]<br>
+- Shapefile: [Landesvermessung und Geobasisinformation Brandenburg](https://geobroker.geobasis-bb.de/gbss.php?MODE=GetProductInformation&PRODUCTID=00fdc3fb-3bc1-4548-bca2-e735fb11c974), accessed on 24.01.2025, 10:40<br>
+- Population of Brandenburg: [Amt für Statistik Berlin-Brandenburg](https://www.statistik-berlin-brandenburg.de/bevoelkerung/demografie/bevoelkerungsstand), acessed on 28.01.2025, 11:00.
+
+## Counties {width=50%}
+
+The differences between the proportions of the population of each county of Brandenburg [1] on the left side and the agents' population on MATSim on the right side are presented in forehand for the better comprehension of the following results.  
+
+```{r}
+diff_trav_time_bb <- st_read("diff_trav_time_bb.shp", quiet = TRUE)
 
 tmap_mode("view")
 tm_shape(diff_trav_time_bb) +
+  tm_polygons(col = "ppltn_p",
+              title = "Agents' Population (% of Total Agents)",
+              palette = "Greens",
+              style = "cont",
+              breaks = seq(0, 20, by = 5))
+```
+
+List of Agents for each County
+
+```{r}
+datatable(diff_kreise_persons_joined_agg)
+```
+
+# Travel Time
+
+## Difference of Mean Travel Time - Map {width=40%}
+
+```{r}
+tmap_mode("view")
+tm_shape(diff_trav_time_bb) +
   tm_polygons(col = "dff_tr_",
-              title = "Difference in Travel Time (Policy - Base)",
+              title = "Difference of Mean Travel Time (min) (Policy - Base)",
               palette = "-RdYlGn",
               style = "cont") +
   tm_borders() +
   tm_scale_bar() +
   tm_layout(legend.outside = TRUE)
-
 ```
 
-You can add options to executable code like this
+## Difference of Mean Travel Time - Plot {width=60%}
 
 ```{r}
-#| echo: false
-2 * 2
+trav_time_bb_combined <- bind_rows(base_kreise_persons_joined_agg, policy_kreise_persons_joined_agg)
+
+ggplot(trav_time_bb_combined, aes(x = krs_name, y = trav_time, fill = scenario)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.7) +
+  labs(title = "Median Travel Time in Brandenburg: Base vs Policy Scenario",
+       x = "County", y = "Travel Time (min)") +
+  scale_fill_manual(values = c("Base" = "darkgreen", "Policy" = "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(hjust = 1, angle = 45))
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+# Car Use
+
+## Reduction of Car Use - Plot {width=60%}
+
+```{r}
+base_persons_sf <- base_persons %>% filter(str_starts(person, "bb_")) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% 
+  st_transform(25833) %>% 
+  st_intersection(bb_kreise_shp)
+
+base_main_mode <- base_trips %>%
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  group_by(person) %>%
+  summarise(main_mode) %>% 
+  distinct(person, .keep_all = TRUE)
+
+base_trips_sf <- left_join(base_persons_sf, base_main_mode) %>% 
+  filter(!is.na(main_mode))
+
+base_krs_car <- base_trips_sf %>% 
+  group_by(krs_name, main_mode) %>% 
+  summarise( trip_count = n(), groups= "drop") %>% 
+  group_by(krs_name) %>% 
+  mutate(total_trips = sum(trip_count)) %>% 
+  filter(main_mode == "car") %>%
+  mutate(car_percentage = (trip_count / total_trips) * 100) %>% 
+  mutate(scenario = "Base")
+
+policy_main_mode <- policy_trips %>%
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  group_by(person) %>%
+  summarise(main_mode) %>% 
+  distinct(person, .keep_all = TRUE)
+
+policy_trips_sf <- left_join(base_persons_sf, policy_main_mode) %>% 
+  filter(!is.na(main_mode))
+
+policy_krs_car <- policy_trips_sf %>% 
+  group_by(krs_name, main_mode) %>% 
+  summarise( trip_count = n(), groups= "drop") %>% 
+  group_by(krs_name) %>% 
+  mutate(total_trips = sum(trip_count)) %>% 
+  filter(main_mode == "car") %>%
+  mutate(car_percentage = (trip_count / total_trips) * 100) %>% 
+  mutate(scenario = "Policy")
+
+krs_car_combined <- bind_rows(base_krs_car, policy_krs_car)
+
+ggplot(krs_car_combined, aes(x = krs_name, y = car_percentage, fill = scenario)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.7) +
+  labs(title = "Car Use as Main Mode in Brandenburg: Base vs Policy Scenario",
+       x = "County", y = "Car Use as Main Mode (%)") +
+  scale_fill_manual(values = c("Base" = "blue", "Policy" = "orange")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(hjust = 1, angle = 45))
+```
+
+## Reduction of Car Use - Map {width=40%}
+
+```{r}
+diff_krs_car_bb <- st_read("diff_krs_car_bb.shp", quiet = TRUE)
+
+tmap_mode("view")
+tm_shape(diff_krs_car_bb) +
+  tm_polygons(col = "dff_cr_",
+              title = "Reduction (%) of Car Use in Brandenburg",
+              palette = "Oranges",
+              style = "cont")
+```
