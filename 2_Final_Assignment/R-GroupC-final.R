@@ -31,16 +31,74 @@ tmap_mode("view")
 tm_shape(bb_kreise_shp) + 
   tm_polygons()
 
-base_trips_sf <- base_trips %>% filter(str_starts(person, "bb_")) %>% 
-  st_as_sf(coords = c("start_x","start_y"), crs = 25832) %>% st_transform(25833)
+base_persons_sf <- base_persons %>% filter(str_starts(person, "bb_")) %>% 
+  st_as_sf(coords = c("home_x","home_y"), crs = 25832) %>% 
+  st_transform(25833) %>% 
+  st_intersection(bb_kreise_shp)
 
-st_crs(base_trips_sf)
+
+base_main_mode <- base_trips %>%
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  group_by(person) %>%
+  summarise(main_mode) %>% 
+  distinct(person, .keep_all = TRUE)
+
+base_trips_sf <- left_join(base_persons_sf, base_main_mode) %>% 
+  filter(!is.na(main_mode))
+
+
 
 base_trips_sf %>% 
   tm_shape() +
   tm_dots(col = "main_mode") +
   tm_shape(bb_kreise_shp) + 
-  tm_borders() 
+  tm_borders()
+
+
+policy_main_mode <- policy_trips %>%
+  filter(grepl("^bb", person, ignore.case = TRUE)) %>% 
+  group_by(person) %>%
+  summarise(main_mode) %>% 
+  distinct(person, .keep_all = TRUE)
+
+policy_trips_sf <- left_join(base_persons_sf, policy_main_mode) %>% 
+  filter(!is.na(main_mode))
+
+policy_trips_sf %>% 
+  tm_shape() +
+  tm_dots(col = "main_mode") +
+  tm_shape(bb_kreise_shp) + 
+  tm_borders()
+
+#filtering car mode from main_mode from each kreise
+base_krs_car <- base_trips_sf %>% 
+  group_by(krs_name, main_mode) %>% 
+  summarise( trip_count = n(), groups= "drop") %>% 
+  group_by(krs_name) %>% 
+  mutate(total_trips = sum(trip_count)) %>% 
+  filter(main_mode == "car") %>%
+  mutate(car_percentage = (trip_count / total_trips) * 100)
+
+policy_krs_car <- policy_trips_sf %>% 
+  group_by(krs_name, main_mode) %>% 
+  summarise( trip_count = n(), groups= "drop") %>% 
+  group_by(krs_name) %>% 
+  mutate(total_trips = sum(trip_count)) %>% 
+  filter(main_mode == "car") %>%
+  mutate(car_percentage = (trip_count / total_trips) * 100)
+
+diff_krs_car <- st_join(base_krs_car, policy_krs_car,
+  by = "krs_name",
+  suffix = c("_base","_policy")) %>% 
+  mutate(diff_car_percentage = car_percentage_policy - car_percentage_base)
+
+
+tm_shape(diff_krs_car) +
+  tm_polygons(col = "diff_car_percentage",
+              title = "Reduction % car used in Brandenburg",
+              palette = "-RdYlGn",
+              style = "cont")
+
 
 # Base case
 base_person_bb_travel_time <- base_trips %>%
@@ -144,6 +202,10 @@ population_tidy <- population[2:19,] %>%
   select(krss, krs_name, population) %>% 
   mutate(population = as.numeric(population)) %>% 
   mutate(population_percentage = (population / sum(population, na.rm = TRUE)) * 100)
+
+
+#
+
 
 
 

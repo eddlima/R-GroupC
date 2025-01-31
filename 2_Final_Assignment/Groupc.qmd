@@ -1,11 +1,10 @@
 ---
 ---
-title: "Data Science Class 24/25"
-author: "VSP"
+title: "Group C"
 format: 
   dashboard:
     nav-buttons: 
-      icon: 
+    orientation: columns
     theme: yeti
 editor: visual
 ---
